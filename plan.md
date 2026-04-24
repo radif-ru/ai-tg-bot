@@ -197,7 +197,7 @@
 
 ## Задача 6. Entrypoint и команды `/start`, `/help`
 
-- **Статус:** Progress
+- **Статус:** Done
 - **Этап roadmap:** 5
 - **Зависит от:** Задача 5
 - **Связанные документы:** `docs/architecture.md` §3.1, §3.6, `docs/commands.md` §«/start», §«/help», §«BotFather / setMyCommands», `docs/stack.md` §2, `docs/roadmap.md` «Этап 5».
@@ -418,7 +418,7 @@
 | 3 | Конфигурация (`Settings`) и логирование          | 2    | Done   | 2          |
 | 4 | LLM-клиент (`OllamaClient`) и исключения         | 3    | Done   | 3          |
 | 5 | Registry для модели и системного промпта         | 4    | Done   | 4          |
-| 6 | Entrypoint и команды `/start`, `/help`           | 5    | Progress | 5          |
+| 6 | Entrypoint и команды `/start`, `/help`           | 5    | Done   | 5          |
 | 7 | Основной обработчик текста → LLM                 | 6    | ToDo   | 6          |
 | 8 | Команды `/models`, `/model`, `/prompt`           | 7    | ToDo   | 7          |
 | 9 | Middleware логирования + глобальный error handler| 8    | ToDo   | 8          |
