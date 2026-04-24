@@ -164,7 +164,7 @@
 
 ## Задача 5. Registry для модели и системного промпта
 
-- **Статус:** Progress
+- **Статус:** Done
 - **Этап roadmap:** 4
 - **Зависит от:** Задача 4
 - **Связанные документы:** `docs/architecture.md` §3.5, `docs/commands.md` §«/model», §«/prompt», `docs/testing.md` §3.3, `docs/roadmap.md` «Этап 4».
@@ -417,7 +417,7 @@
 | 2 | Скелет репозитория и базовые файлы               | 1    | Done   | 1          |
 | 3 | Конфигурация (`Settings`) и логирование          | 2    | Done   | 2          |
 | 4 | LLM-клиент (`OllamaClient`) и исключения         | 3    | Done   | 3          |
-| 5 | Registry для модели и системного промпта         | 4    | Progress | 4          |
+| 5 | Registry для модели и системного промпта         | 4    | Done   | 4          |
 | 6 | Entrypoint и команды `/start`, `/help`           | 5    | ToDo   | 5          |
 | 7 | Основной обработчик текста → LLM                 | 6    | ToDo   | 6          |
 | 8 | Команды `/models`, `/model`, `/prompt`           | 7    | ToDo   | 7          |
