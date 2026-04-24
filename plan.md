@@ -280,7 +280,7 @@
 
 ## Задача 8. Команды `/models`, `/model <name>`, `/prompt [text]`
 
-- **Статус:** Progress
+- **Статус:** Done
 - **Этап roadmap:** 7
 - **Зависит от:** Задача 7
 - **Связанные документы:** `docs/commands.md` §«/models», §«/model», §«/prompt», `docs/testing.md` §3.4, `docs/roadmap.md` «Этап 7».
@@ -420,7 +420,7 @@
 | 5 | Registry для модели и системного промпта         | 4    | Done   | 4          |
 | 6 | Entrypoint и команды `/start`, `/help`           | 5    | Done   | 5          |
 | 7 | Основной обработчик текста → LLM                 | 6    | Done   | 6          |
-| 8 | Команды `/models`, `/model`, `/prompt`           | 7    | Progress | 7          |
+| 8 | Команды `/models`, `/model`, `/prompt`           | 7    | Done   | 7          |
 | 9 | Middleware логирования + глобальный error handler| 8    | ToDo   | 8          |
 |10 | README, полировка, чек-лист приёмки MVP          | 9    | ToDo   | 9          |
 |11 | (Опционально) Доработки после MVP                | 10   | ToDo   | 10         |
