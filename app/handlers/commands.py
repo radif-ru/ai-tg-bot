@@ -1,4 +1,4 @@
-"""Handler'ы команд бота (/start, /help и др.).
+"""Handler'ы команд бота (/start, /help, /models, /model, /prompt).
 
 См. `docs/commands.md` — спецификация поведения каждой команды.
 """
@@ -8,9 +8,10 @@ from __future__ import annotations
 from html import escape
 
 from aiogram import Router
-from aiogram.filters import Command, CommandStart
+from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.types import Message
 
+from app.config import Settings
 from app.services.model_registry import UserSettingsRegistry
 
 router = Router(name="commands")
@@ -62,3 +63,71 @@ async def cmd_help(message: Message, registry: UserSettingsRegistry) -> None:
         "/prompt &lt;текст&gt; — задать системный промпт (без аргумента — сброс)"
     )
     await message.answer(text)
+
+
+@router.message(Command("models"))
+async def cmd_models(
+    message: Message,
+    settings: Settings,
+    registry: UserSettingsRegistry,
+) -> None:
+    """Показать список доступных моделей с отметкой активной."""
+    user_id = message.from_user.id if message.from_user else 0
+    active = registry.get_model(user_id)
+
+    lines = ["<b>Доступные модели</b>"]
+    for name in settings.ollama_available_models:
+        marker = " ← активная" if name == active else ""
+        lines.append(f"• <code>{escape(name)}</code>{marker}")
+    lines.append("")
+    lines.append("Сменить: <code>/model &lt;имя&gt;</code>")
+
+    await message.answer("\n".join(lines))
+
+
+@router.message(Command("model"))
+async def cmd_model(
+    message: Message,
+    command: CommandObject,
+    settings: Settings,
+    registry: UserSettingsRegistry,
+) -> None:
+    """Переключить активную модель пользователя."""
+    user_id = message.from_user.id if message.from_user else 0
+    raw_arg = (command.args or "").strip()
+
+    if not raw_arg:
+        await message.answer(
+            "Использование: <code>/model &lt;имя&gt;</code>. Список: /models"
+        )
+        return
+
+    name = raw_arg.split()[0]
+    if name not in settings.ollama_available_models:
+        available = ", ".join(
+            f"<code>{escape(m)}</code>" for m in settings.ollama_available_models
+        )
+        await message.answer(f"Модель не найдена. Доступно: {available}")
+        return
+
+    registry.set_model(user_id, name)
+    await message.answer(f"Модель переключена на <code>{escape(name)}</code>.")
+
+
+@router.message(Command("prompt"))
+async def cmd_prompt(
+    message: Message,
+    command: CommandObject,
+    registry: UserSettingsRegistry,
+) -> None:
+    """Установить системный промпт. Без аргумента — сброс к default."""
+    user_id = message.from_user.id if message.from_user else 0
+    arg = (command.args or "").strip()
+
+    if not arg:
+        registry.reset_prompt(user_id)
+        await message.answer("Системный промпт сброшен к значению по умолчанию.")
+        return
+
+    registry.set_prompt(user_id, arg)
+    await message.answer("Системный промпт обновлён.")
