@@ -143,7 +143,7 @@
 
 ### Задача 2.1. `OllamaClient.chat(messages, model)` поверх Ollama chat-API
 
-- **Статус:** ToDo
+- **Статус:** Progress
 - **Приоритет:** high
 - **Объём:** M
 - **Зависит от:** Задача 1.2
@@ -529,7 +529,7 @@
 |-----|-----------------------------------------------------------------------|:---------:|:-----:|:------:|:---------------------------:|
 | 1.1 | Расширить `Settings` и `.env.example` параметрами истории             | high      | S     | Done   | —                           |
 | 1.2 | `ConversationStore` — in-memory история per-user                      | high      | M     | Done   | Задача 1.1                  |
-| 2.1 | `OllamaClient.chat(messages, model)` поверх Ollama chat-API           | high      | M     | ToDo   | Задача 1.2                  |
+| 2.1 | `OllamaClient.chat(messages, model)` поверх Ollama chat-API           | high      | M     | Progress | Задача 1.2                |
 | 2.2 | `Summarizer` — сжатие старой части диалога через LLM                  | high      | S     | ToDo   | Задача 2.1                  |
 | 3.1 | Handler текста: контекст, логирование, `chat`, обновление истории     | high      | L     | ToDo   | Задачи 1.2, 2.1, 2.2        |
 | 4.1 | Команда `/reset` и обновление справочных текстов                      | medium    | S     | ToDo   | Задача 3.1                  |
