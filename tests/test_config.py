@@ -63,3 +63,68 @@ def test_secret_str_masks_token_in_repr(base_env: dict[str, str]) -> None:
 
     assert base_env["TELEGRAM_BOT_TOKEN"] not in repr(settings)
     assert base_env["TELEGRAM_BOT_TOKEN"] not in str(settings)
+
+
+def test_history_defaults_are_sane(base_env: dict[str, str]) -> None:
+    """Без переопределения env'ом должны действовать default'ы из Settings."""
+    from app.config import Settings
+
+    settings = Settings(_env_file=None)
+
+    assert settings.history_max_messages == 20
+    assert settings.history_summary_threshold == 10
+    assert settings.history_summary_threshold <= settings.history_max_messages
+    assert settings.summarization_prompt
+    assert settings.log_llm_context is True
+
+
+def test_history_env_overrides_apply(
+    monkeypatch: pytest.MonkeyPatch, base_env: dict[str, str]
+) -> None:
+    monkeypatch.setenv("HISTORY_MAX_MESSAGES", "30")
+    monkeypatch.setenv("HISTORY_SUMMARY_THRESHOLD", "5")
+    monkeypatch.setenv("SUMMARIZATION_PROMPT", "Подведи итог.")
+    monkeypatch.setenv("LOG_LLM_CONTEXT", "false")
+
+    from app.config import Settings
+
+    settings = Settings(_env_file=None)
+
+    assert settings.history_max_messages == 30
+    assert settings.history_summary_threshold == 5
+    assert settings.summarization_prompt == "Подведи итог."
+    assert settings.log_llm_context is False
+
+
+def test_summary_threshold_above_max_raises(
+    monkeypatch: pytest.MonkeyPatch, base_env: dict[str, str]
+) -> None:
+    monkeypatch.setenv("HISTORY_MAX_MESSAGES", "10")
+    monkeypatch.setenv("HISTORY_SUMMARY_THRESHOLD", "20")
+
+    from app.config import Settings
+
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
+
+
+def test_history_max_zero_raises(
+    monkeypatch: pytest.MonkeyPatch, base_env: dict[str, str]
+) -> None:
+    monkeypatch.setenv("HISTORY_MAX_MESSAGES", "0")
+
+    from app.config import Settings
+
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
+
+
+def test_summary_threshold_zero_raises(
+    monkeypatch: pytest.MonkeyPatch, base_env: dict[str, str]
+) -> None:
+    monkeypatch.setenv("HISTORY_SUMMARY_THRESHOLD", "0")
+
+    from app.config import Settings
+
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
