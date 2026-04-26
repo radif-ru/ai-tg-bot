@@ -94,7 +94,7 @@
 
 ### Задача 1.2. `ConversationStore` — in-memory история per-user
 
-- **Статус:** Progress
+- **Статус:** Done
 - **Приоритет:** high
 - **Объём:** M
 - **Зависит от:** Задача 1.1
@@ -130,10 +130,10 @@
 
 #### Definition of Done
 
-- [ ] Файл `app/services/conversation.py` создан, содержит только `ConversationStore` (никаких лишних утилит).
-- [ ] Все 6 публичных операций реализованы по спецификации; внутреннее состояние не утекает наружу.
-- [ ] `pytest tests/services/test_conversation_store.py -q` зелёный, ≥ 6 тестов.
-- [ ] `grep -E "(import aiogram|from aiogram|import ollama|from ollama)" app/services/conversation.py` пусто (стор не зависит ни от Telegram, ни от LLM).
+- [x] Файл `app/services/conversation.py` создан, содержит только `ConversationStore` (+ константа `SUMMARY_PREFIX` для выравнивания формата резюме).
+- [x] Все 6 публичных операций реализованы по спецификации; `get_history` возвращает копию (тест `test_get_history_returns_copy_not_internal_list`).
+- [x] `pytest tests/services/test_conversation_store.py -q` зелёный, 12 тестов.
+- [x] `grep -E "(import aiogram|from aiogram|import ollama|from ollama)" app/services/conversation.py` пусто.
 
 ---
 
@@ -528,7 +528,7 @@
 | #   | Задача                                                                | Приоритет | Объём | Статус | Зависит от                  |
 |-----|-----------------------------------------------------------------------|:---------:|:-----:|:------:|:---------------------------:|
 | 1.1 | Расширить `Settings` и `.env.example` параметрами истории             | high      | S     | Done   | —                           |
-| 1.2 | `ConversationStore` — in-memory история per-user                      | high      | M     | Progress | Задача 1.1                |
+| 1.2 | `ConversationStore` — in-memory история per-user                      | high      | M     | Done   | Задача 1.1                  |
 | 2.1 | `OllamaClient.chat(messages, model)` поверх Ollama chat-API           | high      | M     | ToDo   | Задача 1.2                  |
 | 2.2 | `Summarizer` — сжатие старой части диалога через LLM                  | high      | S     | ToDo   | Задача 2.1                  |
 | 3.1 | Handler текста: контекст, логирование, `chat`, обновление истории     | high      | L     | ToDo   | Задачи 1.2, 2.1, 2.2        |
@@ -544,3 +544,4 @@
 - **2026-04-26** — спринт открыт, ветка `feature/conversation-context` создана от `main`.
 - **2026-04-26** — усилены правила тестирования (обязательные unit-тесты для кода в `app/`, зелёный `pytest -q` перед коммитом) — `docs(rules): require unit tests for new code in app/ and green pytest before commit`.
 - **2026-04-26** — закрыта задача 1.1: расширен `Settings` полями `history_max_messages`, `history_summary_threshold`, `summarization_prompt`, `log_llm_context` и валидатором лимитов; `.env.example` дополнен секцией «Conversation context» (коммит `feat(config): add conversation history settings (max, summary threshold, prompt, log flag)`).
+- **2026-04-26** — закрыта задача 1.2: добавлен `app/services/conversation.py::ConversationStore` (in-memory история per-user, FIFO-обрезка, `replace_with_summary`, `clear`) + 12 unit-тестов (коммит `feat(services): add ConversationStore for in-memory per-user dialog history`).
