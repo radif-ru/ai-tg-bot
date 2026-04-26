@@ -2,7 +2,7 @@
 
 ## 1. Общая схема
 
-Минимальный pipeline без состояния, без БД и без истории диалога:
+Pipeline с in-memory историей диалога per-user и LLM-суммаризацией, без БД и без персистентного хранилища:
 
 ```
                 +---------------------+
@@ -17,20 +17,21 @@
                            |
                            | long polling
                            v
-                +---------------------+
-                |   aiogram Bot       |
-                |   (Dispatcher,      |
-                |    Router, Handlers)|
-                +----------+----------+
+                +---------------------+         +-----------------------+
+                |   aiogram Bot       |<------> | ConversationStore     |
+                |   (Dispatcher,      |  read/  | (in-memory per-user   |
+                |    Router, Handlers)|  write  |  history)             |
+                +----------+----------+         +-----------------------+
+                           |                                ^
+                           | async-вызов                    | summary
+                           v                                |
+                +---------------------+         +-----------------------+
+                |  LLM Service Layer  | <------ | Summarizer            |
+                | OllamaClient        |  chat() | (сжимает историю   |
+                | .generate / .chat   |         |  через LLM)          |
+                +----------+----------+         +-----------------------+
                            |
-                           | async-вызов
-                           v
-                +---------------------+
-                |  LLM Service Layer  |
-                | (клиент к Ollama)   |
-                +----------+----------+
-                           |
-                           | HTTP (ollama REST API)
+                           | HTTP (ollama REST API: /api/generate, /api/chat)
                            v
                 +---------------------+
                 |   Ollama (local)    |
@@ -39,15 +40,15 @@
                 +---------------------+
 ```
 
-Обратный путь: ответ LLM → сервис-слой → handler → `bot.send_message` → Telegram → пользователь.
+Обратный путь: ответ LLM → сервис-слой → handler → допись в `ConversationStore` → (опционально) `Summarizer.summarize` → `bot.send_message` → Telegram → пользователь.
 
 ## 2. Принципы
 
-- **Stateless**: каждое сообщение обрабатывается независимо; бот не хранит историю диалога.
-- **No persistence**: никакой БД, файлового хранилища сессий и т. д.
+- **In-memory state, no persistence**: пер-сессионное состояние (история, выбранная модель, системный промпт) живёт только в памяти процесса и теряется при рестарте. БД, файлы, Redis и другие персистентные хранилища не используются.
+- **Per-user изоляция**: история и настройки разделены по `user_id`; один пользователь не видит контекст другого.
 - **Async-first**: весь код на `async/await`, I/O не блокирует event loop.
 - **Polling, не webhook**: `bot.start_polling()` / `Dispatcher.start_polling()`.
-- **Отказоустойчивость**: любая ошибка (таймаут LLM, сетевой сбой, недоступность Ollama) ловится и превращается в понятное сообщение пользователю + запись в лог.
+- **Отказоустойчивость**: любая ошибка (таймаут LLM, сетевой сбой, недоступность Ollama, сбой суммаризации) ловится и превращается в понятное сообщение пользователю + запись в лог.
 - **Конфигурация через env**: все секреты и настройки — из переменных окружения (`.env`).
 
 ## 3. Компоненты
@@ -66,8 +67,12 @@
   - `OLLAMA_DEFAULT_MODEL` — модель по умолчанию.
   - `OLLAMA_AVAILABLE_MODELS` — список разрешённых моделей.
   - `OLLAMA_TIMEOUT` — таймаут запроса.
-  - `SYSTEM_PROMPT` — системный промпт по умолчанию.
+  - `SYSTEM_PROMPT` — системный промпт по умолчанию (первое сообщение `role: system` в каждом контексте).
   - `LOG_LEVEL`, `LOG_FILE` — параметры логирования.
+  - `HISTORY_MAX_MESSAGES` — жёсткий лимит размера истории на пользователя.
+  - `HISTORY_SUMMARY_THRESHOLD` — порог запуска суммаризации (`> 0`, `<= HISTORY_MAX_MESSAGES`).
+  - `SUMMARIZATION_PROMPT` — system prompt для LLM-вызова суммаризации.
+  - `LOG_LLM_CONTEXT` — печатать ли полный JSON-контекст перед каждым LLM-запросом (см. §4 п.5).
 
 ### 3.3 Логирование (`app/logging_config.py`)
 - `logging.config.dictConfig` с двумя handler'ами: консоль и файл (ротация).
@@ -75,16 +80,22 @@
 - Логируются: старт бота, входящие команды, входящий текст, запрос в LLM, длительность и статус, ошибки.
 
 ### 3.4 LLM-сервис (`app/services/llm.py`)
-- Класс `OllamaClient` (async, на `httpx.AsyncClient` или `aiohttp`).
-- Методы:
-  - `generate(prompt: str, model: str, system_prompt: str | None) -> str`
-  - `list_models() -> list[str]` (опционально).
-- Обрабатывает ошибки: `ConnectionError`, `TimeoutError`, неверные статусы → пробрасывает `LLMError` с понятным сообщением.
+- Класс `OllamaClient` (async, на `ollama.AsyncClient`).
+- Два пути вызова:
+  - `generate(prompt: str, *, model, system_prompt) -> str` — одношаговый вызов (`/api/generate`); используется для обратной совместимости.
+  - `chat(messages: list[dict], *, model) -> str` — полный контекст в формате `[{"role", "content"}, …]` (`/api/chat`); основной путь в handler'е текста.
+- Маппинг ошибок (идентичен для обоих методов): `httpx.TimeoutException` / `asyncio.TimeoutError` → `LLMTimeout`; `httpx.ConnectError` → `LLMUnavailable`; `ollama.ResponseError` 404 → `LLMBadResponse("модель не найдена")`; прочие 4xx/5xx → `LLMBadResponse`; пустой текст → `LLMBadResponse("LLM вернула пустой ответ")`.
+- На каждый вызов пишет INFO-строку с метриками (`model`, `len_in`, `len_out`, `dur_ms`, `status`; для `chat` — дополнительно `messages=N`).
+- Функция уровня модуля `estimate_tokens(value: str | list[dict]) -> int` — грубая оценка `символы / 4`. Не точный токенайзер (для кириллицы реальное число может отличаться в 1.5–2 раза), но хватает для логирования размера контекста и порогов. Точный токенайзер (`tiktoken` / HF) — кандидат `roadmap.md`.
 
-### 3.5 Выбор модели (stateless)
-Поскольку хранения состояния нет, «текущая модель» держится в in-memory map `chat_id -> model_name` внутри процесса (сбрасывается при рестарте). Это не история диалога, а рантайм-настройка пользователя. Если ТЗ трактовать строго — можно передавать модель как параметр команды без запоминания вовсе. См. `mvp.md` и `commands.md`.
+### 3.5 Per-user runtime-состояние
 
-> Примечание: такая in-memory map не нарушает запрет «хранить историю диалога» — история сообщений не хранится, хранится только выбранная пользователем модель. Допустимая трактовка требования stateless подтверждается в `requirements.md`.
+In-memory состояние процесса, разделённое по `user_id`. После рестарта всё возвращается к default'ам из `Settings`.
+
+- **`UserSettingsRegistry` (`app/services/model_registry.py`)** — `user_id → model` + `user_id → system_prompt`. АПИ: `get_model` / `set_model` / `reset_model`, `get_prompt` / `set_prompt` / `reset_prompt`, `reset` (оба сразу).
+- **`ConversationStore` (`app/services/conversation.py`)** — `user_id → list[{role, content}]`, история диалога. АПИ: `get_history`, `add_user_message`, `add_assistant_message`, `replace_with_summary(summary, kept_tail=2)`, `clear`. Жёсткий лимит `Settings.history_max_messages` (default 20); при переполнении самые старые сообщения удаляются (FIFO). `get_history` возвращает копию (не внутренний список) — мутации снаружи не влияют на стор.
+
+Оба класса — без локов: в CPython в одном event loop'е dict-ассайны атомарны, а данные изолированы по `user_id`. Никакого файлового/сетевого I/O в сторах нет — они чистые in-memory структуры.
 
 ### 3.6 Handlers (`app/handlers/`)
 - `commands.py`: `/start`, `/help`, `/model`, `/models`, `/prompt`.
@@ -95,17 +106,32 @@
 - `LoggingMiddleware` — логирует каждый апдейт (user_id, chat_id, тип, длительность).
 - `ThrottlingMiddleware` — простой rate-limit (опционально, за рамками MVP).
 
+### 3.8 Суммаризация диалога (`app/services/summarizer.py`)
+
+Класс `Summarizer` — тонкая обёртка над `OllamaClient.chat`, которая отправляет старую часть истории в LLM с системным промптом из `Settings.summarization_prompt` и возвращает краткое резюме.
+
+- Конструктор: `Summarizer(client: OllamaClient, *, prompt: str)`. Промпт инъектируется параметром (без прямой зависимости от `Settings`), чтобы упростить юнит-тесты и позволить переопределение на ходу.
+- `async summarize(messages, *, model)` — формирует payload `[{"role": "system", "content": prompt}] + messages` и вызывает `client.chat(payload, model=model)`.
+- Суммаризатор не глушит ошибки и не ретраит — любая `LLMError` пробрасывается наверх; handler текста ловит её и пишет `WARNING summarize failed …`, не портя базовый ответ пользователю.
+
+Порог запуска и политика «что оставляем как есть» — в хендлере текста (`app/handlers/messages.py`): срабатывает при `len(history) >= Settings.history_summary_threshold` (default 10), последние `kept_tail = 2` сообщения сохраняются как есть, остальное заменяется одним `{"role": "system", "content": "Краткое резюме предыдущей части диалога: …"}` через `ConversationStore.replace_with_summary`.
+
 ## 4. Поток обработки текстового сообщения
 
 1. aiogram получает `Message` через polling.
-2. `LoggingMiddleware` логирует входящий апдейт.
+2. `LoggingMiddleware` логирует входящий апдейт (`user/chat/type/dur_ms/status` — без контента).
 3. Router направляет в `messages.py:handle_text`.
 4. Handler:
-   1. Показывает `bot.send_chat_action(ChatAction.TYPING)`.
-   2. Определяет модель для данного `chat_id` (из map или default).
-   3. Вызывает `OllamaClient.generate(...)`.
-   4. При успехе — `message.answer(response)`.
-   5. При ошибке — `message.answer("⚠️ ...")` + лог ошибки.
+   1. Проверяет длину ввода (`MAX_INPUT_LENGTH = 4000`); при превышении — подсказка пользователю и выход.
+   2. Берёт `model` и `system_prompt` из `UserSettingsRegistry`.
+   3. Дописывает сообщение пользователя в `ConversationStore`.
+   4. Собирает контекст `messages = [{"role": "system", "content": system_prompt}] + history`.
+   5. **Обязательно логирует контекст** перед запросом: `INFO llm_context user=… chat=… model=… messages=N tokens=K [payload=<JSON>]`. Поле `payload=` пишется только при `Settings.log_llm_context=True`.
+   6. Показывает `bot.send_chat_action(ChatAction.TYPING)`, вызывает `OllamaClient.chat(messages, model=...)`.
+   7. При успехе — дописывает ответ ассистента в `ConversationStore`.
+   8. **Условная суммаризация**: если `len(history) >= Settings.history_summary_threshold`, вызывает `Summarizer.summarize(history[:-2], model=model)`, результат пишет в стор через `replace_with_summary(…, kept_tail=2)`. Падение суммаризации ловится в `LLMError` → `WARNING`, история остаётся как есть.
+   9. Ответ пользователю — `message.answer(response)` (с разбивкой по границе 4096).
+  10. При ошибке основного LLM-вызова — человеческое сообщение по таблице §5 + запись в лог.
 
 ## 5. Обработка ошибок
 
@@ -123,8 +149,10 @@
 - HTTP-клиент к Ollama — один на приложение (shared `AsyncClient`).
 - Ollama сама сериализует запросы к модели (узкое место — GPU/CPU), но бот не блокируется: пока одна задача ждёт LLM, другие апдейты продолжают диспетчеризоваться.
 
-## 7. Расширяемость (вне MVP)
+## 7. Расширяемость
 
 - Добавление новых моделей — правка `OLLAMA_AVAILABLE_MODELS`.
 - Переключение на webhook — заменить запуск Dispatcher'а, не меняя сервис-слой.
-- Добавление истории диалога — ввести отдельный `ConversationStore` (сейчас явно запрещено ТЗ).
+- Персистентность истории — добавить адаптер `ConversationStore` поверх БД/Redis (сейчас — только in-memory).
+- Точный токенайзер (`tiktoken` / HF-tokenizers) вместо эвристики `chars/4` в `estimate_tokens`.
+- Throttling, стриминг ответа, Docker/CI — см. `roadmap.md` Этап 10.
