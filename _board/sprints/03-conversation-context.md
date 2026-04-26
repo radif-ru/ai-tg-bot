@@ -451,7 +451,7 @@
 
 ### Задача 5.4. Обновить `_docs/commands.md` и `_docs/current-state.md`
 
-- **Статус:** ToDo
+- **Статус:** Progress
 - **Приоритет:** medium
 - **Объём:** S
 - **Зависит от:** Задача 4.1, 5.2
@@ -540,7 +540,7 @@
 | 5.1 | Обновить `README.md`: «История диалога», «Суммаризация»               | high      | S     | Done   | Задачи 3.1, 4.1             |
 | 5.2 | Обновить `_docs/architecture.md` и `_docs/project-structure.md`       | high      | M     | Done   | Задача 3.1                  |
 | 5.3 | Обновить `_docs/requirements.md` (FR-3, CON-1, новые FR)              | high      | M     | Done   | Задачи 3.1, 4.1             |
-| 5.4 | Обновить `_docs/commands.md` и `_docs/current-state.md`               | medium    | S     | ToDo   | Задачи 4.1, 5.2             |
+| 5.4 | Обновить `_docs/commands.md` и `_docs/current-state.md`               | medium    | S     | Progress | Задачи 4.1, 5.2           |
 | 5.5 | Финальная приёмка спринта                                             | high      | S     | ToDo   | Задачи 5.1, 5.2, 5.3, 5.4   |
 
 ## 11. История изменений спринта
