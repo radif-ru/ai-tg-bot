@@ -410,7 +410,7 @@
 
 ### Задача 5.3. Обновить `_docs/requirements.md` (FR-3, CON-1, новые FR на историю)
 
-- **Статус:** ToDo
+- **Статус:** Progress
 - **Приоритет:** high
 - **Объём:** M
 - **Зависит от:** Задача 3.1, 4.1
@@ -537,7 +537,7 @@
 | 4.1 | Команда `/reset` и обновление справочных текстов                      | medium    | S     | Done   | Задача 3.1                  |
 | 5.1 | Обновить `README.md`: «История диалога», «Суммаризация»               | high      | S     | Done   | Задачи 3.1, 4.1             |
 | 5.2 | Обновить `_docs/architecture.md` и `_docs/project-structure.md`       | high      | M     | Done   | Задача 3.1                  |
-| 5.3 | Обновить `_docs/requirements.md` (FR-3, CON-1, новые FR)              | high      | M     | ToDo   | Задачи 3.1, 4.1             |
+| 5.3 | Обновить `_docs/requirements.md` (FR-3, CON-1, новые FR)              | high      | M     | Progress | Задачи 3.1, 4.1           |
 | 5.4 | Обновить `_docs/commands.md` и `_docs/current-state.md`               | medium    | S     | ToDo   | Задачи 4.1, 5.2             |
 | 5.5 | Финальная приёмка спринта                                             | high      | S     | ToDo   | Задачи 5.1, 5.2, 5.3, 5.4   |
 
