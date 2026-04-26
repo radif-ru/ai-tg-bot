@@ -15,8 +15,10 @@ from app.handlers import errors as errors_handlers
 from app.handlers import messages as messages_handlers
 from app.logging_config import setup_logging
 from app.middlewares.logging_mw import LoggingMiddleware
+from app.services.conversation import ConversationStore
 from app.services.llm import OllamaClient
 from app.services.model_registry import UserSettingsRegistry
+from app.services.summarizer import Summarizer
 
 
 async def main() -> None:
@@ -48,10 +50,14 @@ async def main() -> None:
         default_model=settings.ollama_default_model,
         default_prompt=settings.system_prompt,
     )
+    conversation = ConversationStore(max_messages=settings.history_max_messages)
+    summarizer = Summarizer(llm_client, prompt=settings.summarization_prompt)
 
     dispatcher["settings"] = settings
     dispatcher["llm_client"] = llm_client
     dispatcher["registry"] = registry
+    dispatcher["conversation"] = conversation
+    dispatcher["summarizer"] = summarizer
 
     dispatcher.update.middleware(LoggingMiddleware())
 
