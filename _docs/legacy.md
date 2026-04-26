@@ -9,14 +9,13 @@
 
 ## Известные проблемы и легаси (из `current-state.md` §2)
 
-- [§2.1 — Нет команды `/reset` и нет `registry.reset()`](./current-state.md)
-- [§2.2 — Нет throttling / rate-limit middleware](./current-state.md)
-- [§2.3 — Нет стриминга ответа Ollama](./current-state.md)
-- [§2.4 — Нет CI](./current-state.md)
-- [§2.5 — Нет Docker / docker-compose](./current-state.md)
-- [§2.6 — Линтер/форматтер не настроен](./current-state.md)
-- [§2.7 — Нет валидации `LOG_LEVEL`](./current-state.md)
-- [§2.8 — Двойное логирование длительности в `messages.py`](./current-state.md)
+- [§2.1 — Нет throttling / rate-limit middleware](./current-state.md)
+- [§2.2 — Нет стриминга ответа Ollama](./current-state.md)
+- [§2.3 — Нет CI](./current-state.md)
+- [§2.4 — Нет Docker / docker-compose](./current-state.md)
+- [§2.5 — Линтер/форматтер не настроен](./current-state.md)
+- [§2.6 — Нет валидации `LOG_LEVEL`](./current-state.md)
+- [§2.7 — Двойное логирование длительности в `messages.py`](./current-state.md)
 
 ## Кандидаты на улучшения (из `roadmap.md`)
 

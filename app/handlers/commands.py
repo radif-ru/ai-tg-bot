@@ -12,6 +12,7 @@ from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.types import Message
 
 from app.config import Settings
+from app.services.conversation import ConversationStore
 from app.services.model_registry import UserSettingsRegistry
 
 router = Router(name="commands")
@@ -21,13 +22,15 @@ _PROMPT_PREVIEW_LIMIT = 200
 START_TEXT = (
     "Привет! Я — AI-бот на локальной LLM (Ollama).\n"
     "\n"
-    "Просто напиши мне что угодно — я отвечу.\n"
+    "Просто напиши мне что угодно — я отвечу. Я помню контекст диалога;\n"
+    "если хочется начать с чистого листа — /reset.\n"
     "\n"
     "Команды:\n"
     "/help — справка\n"
     "/models — доступные модели\n"
     "/model &lt;имя&gt; — выбрать модель\n"
-    "/prompt &lt;текст&gt; — задать системный промпт (без текста — сброс)"
+    "/prompt &lt;текст&gt; — задать системный промпт (без текста — сброс)\n"
+    "/reset — очистить контекст и сбросить настройки"
 )
 
 
@@ -60,7 +63,8 @@ async def cmd_help(message: Message, registry: UserSettingsRegistry) -> None:
         "/help — это сообщение\n"
         "/models — список доступных моделей\n"
         "/model &lt;имя&gt; — сменить модель\n"
-        "/prompt &lt;текст&gt; — задать системный промпт (без аргумента — сброс)"
+        "/prompt &lt;текст&gt; — задать системный промпт (без аргумента — сброс)\n"
+        "/reset — очистить контекст диалога и сбросить настройки"
     )
     await message.answer(text)
 
@@ -131,3 +135,19 @@ async def cmd_prompt(
 
     registry.set_prompt(user_id, arg)
     await message.answer("Системный промпт обновлён.")
+
+
+@router.message(Command("reset"))
+async def cmd_reset(
+    message: Message,
+    registry: UserSettingsRegistry,
+    conversation: ConversationStore,
+) -> None:
+    """Полный сброс: очистить историю диалога и вернуть model + prompt к default."""
+    user_id = message.from_user.id if message.from_user else 0
+    conversation.clear(user_id)
+    registry.reset(user_id)
+    await message.answer(
+        "Контекст диалога очищен, модель и системный промпт сброшены "
+        "к значениям по умолчанию."
+    )

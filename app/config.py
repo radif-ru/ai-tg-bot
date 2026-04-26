@@ -33,6 +33,14 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_file: str = "logs/bot.log"
 
+    history_max_messages: int = 20
+    history_summary_threshold: int = 10
+    summarization_prompt: str = (
+        "Кратко и точно резюмируй ключевые факты и решения из этого диалога "
+        "в 2–4 предложениях. Ответ — только текст резюме, без вступлений."
+    )
+    log_llm_context: bool = True
+
     @field_validator("ollama_available_models", mode="before")
     @classmethod
     def _split_csv(cls, value: object) -> object:
@@ -46,5 +54,23 @@ class Settings(BaseSettings):
             raise ValueError(
                 f"OLLAMA_DEFAULT_MODEL={self.ollama_default_model!r} "
                 f"must be one of OLLAMA_AVAILABLE_MODELS={self.ollama_available_models}"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _history_limits_consistent(self) -> "Settings":
+        if self.history_max_messages <= 0:
+            raise ValueError(
+                f"HISTORY_MAX_MESSAGES must be > 0, got {self.history_max_messages}"
+            )
+        if self.history_summary_threshold <= 0:
+            raise ValueError(
+                f"HISTORY_SUMMARY_THRESHOLD must be > 0, "
+                f"got {self.history_summary_threshold}"
+            )
+        if self.history_summary_threshold > self.history_max_messages:
+            raise ValueError(
+                f"HISTORY_SUMMARY_THRESHOLD={self.history_summary_threshold} "
+                f"must be <= HISTORY_MAX_MESSAGES={self.history_max_messages}"
             )
         return self

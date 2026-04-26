@@ -11,10 +11,8 @@
 | `/models`       | —                 | Список доступных моделей + отметка активной.          |   ✅   |
 | `/model`        | `<model_name>`    | Переключить активную модель для текущего пользователя.|   ✅   |
 | `/prompt`       | `<text>` \| —     | Установить системный промпт; без аргумента — сброс.   |   ✅   |
-| `/reset`        | —                 | Сбросить рантайм-настройки (модель, промпт) к дефолту.|   ⏳   |
-| *любой текст*   | —                 | Отправить сообщение в LLM, получить ответ.            |   ✅   |
-
-`⏳` — желательно, но не обязательно для MVP.
+| `/reset`        | —                 | Очистить историю диалога + сбросить модель и промпт.   |   ✅   |
+| *любой текст*   | —                 | Отправить сообщение в LLM с историей, получить ответ.|   ✅   |
 
 ## Подробное поведение
 
@@ -66,20 +64,27 @@
 - **Ответ**:
   - «Системный промпт обновлён.» / «Системный промпт сброшен к значению по умолчанию.»
 
-### `/reset` (опционально)
-- **Эффект**: удалить запись пользователя из `model_registry` и `prompt_registry`.
-- **Ответ**: «Настройки сброшены.»
+### `/reset`
+- **Вход**: нет параметров.
+- **Эффект**:
+  - Очистить историю диалога пользователя в `ConversationStore` (`clear(user_id)`).
+  - Сбросить per-user модель и системный промпт к default'ам из `Settings` (`UserSettingsRegistry.reset(user_id)`).
+- **Ответ**: «Контекст диалога очищен, модель и системный промпт сброшены к значениям по умолчанию.»
 
 ### Произвольный текст (не команда)
 - **Вход**: любое текстовое сообщение, не начинающееся с `/`.
 - **Алгоритм**:
-  1. Отправить `ChatAction.TYPING`.
-  2. Взять модель: `model = registry.get(user_id, settings.OLLAMA_DEFAULT_MODEL)`.
-  3. Взять промпт: `system = prompt_registry.get(user_id, settings.SYSTEM_PROMPT)`.
-  4. Вызвать `await llm_client.generate(text, model=model, system_prompt=system)`.
-  5. При успехе — `message.answer(response)`.
-     - если ответ длиннее 4096 символов — разбить на части (Telegram limit).
-  6. При ошибке — ответить человекочитаемым сообщением (см. таблицу ошибок в `architecture.md`).
+  1. Проверить длину ввода (`MAX_INPUT_LENGTH = 4000`); при превышении — подсказка «Слишком длинный запрос, сократите …» и выход.
+  2. Взять модель: `model = registry.get_model(user_id)` (default — `Settings.OLLAMA_DEFAULT_MODEL`).
+  3. Взять промпт: `system_prompt = registry.get_prompt(user_id)` (default — `Settings.SYSTEM_PROMPT`).
+  4. Дописать сообщение пользователя в историю: `conversation.add_user_message(user_id, text)`.
+  5. Собрать контекст: `messages = [{"role": "system", "content": system_prompt}] + conversation.get_history(user_id)`.
+  6. **Обязательно логировать контекст** до LLM-вызова: `INFO llm_context user=… chat=… model=… messages=N tokens=K [payload=<JSON>]`. `payload=` пишется только при `Settings.log_llm_context=True`.
+  7. Отправить `ChatAction.TYPING`, вызвать `await llm_client.chat(messages, model=model)`.
+  8. При успехе — дописать ответ ассистента: `conversation.add_assistant_message(user_id, response)`.
+  9. **Условная суммаризация**: если `len(history) >= Settings.history_summary_threshold`, вызвать `summarizer.summarize(history[:-2], model=model)` и записать результат через `replace_with_summary(…, kept_tail=2)`. Падение суммаризации ловится → `WARNING summarize failed …`, история остаётся как есть.
+ 10. Ответ пользователю — `message.answer(response)`. Если ответ длиннее 4096 символов — разбивка на части (Telegram limit).
+ 11. При ошибке основного LLM-вызова — человекочитаемое сообщение (см. таблицу ошибок в `architecture.md` §5).
 
 ## BotFather / setMyCommands
 
@@ -92,6 +97,7 @@ await bot.set_my_commands([
     BotCommand(command="models", description="Список моделей"),
     BotCommand(command="model", description="Выбрать модель"),
     BotCommand(command="prompt", description="Задать системный промпт"),
+    BotCommand(command="reset", description="Очистить контекст и сбросить настройки"),
 ])
 ```
 

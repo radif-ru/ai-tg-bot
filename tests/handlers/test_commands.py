@@ -17,8 +17,10 @@ from app.handlers.commands import (
     cmd_model,
     cmd_models,
     cmd_prompt,
+    cmd_reset,
     cmd_start,
 )
+from app.services.conversation import ConversationStore
 from app.services.model_registry import UserSettingsRegistry
 
 
@@ -162,3 +164,55 @@ async def test_model_whitespace_only_arg_treated_as_empty(
     registry.set_model.assert_not_called()
     text = fake_message.answer.call_args.args[0]
     assert "/model" in text
+
+
+# --- /reset ---
+
+
+async def test_reset_clears_history_and_resets_registry(
+    fake_message: MagicMock,
+) -> None:
+    registry = MagicMock(spec=UserSettingsRegistry)
+    conversation = MagicMock(spec=ConversationStore)
+
+    await cmd_reset(fake_message, registry, conversation)
+
+    conversation.clear.assert_called_once_with(42)
+    registry.reset.assert_called_once_with(42)
+    text = fake_message.answer.call_args.args[0]
+    assert "очищен" in text.lower()
+    assert "сброшен" in text.lower()
+
+
+async def test_reset_works_on_real_store_and_registry(
+    fake_message: MagicMock,
+) -> None:
+    """Интеграционный мини-тест: реальные store + registry, проверяем эффект."""
+    registry = UserSettingsRegistry(default_model="m1", default_prompt="p")
+    registry.set_model(42, "m2")
+    registry.set_prompt(42, "custom")
+    conversation = ConversationStore(max_messages=10)
+    conversation.add_user_message(42, "hi")
+    conversation.add_assistant_message(42, "hello")
+
+    await cmd_reset(fake_message, registry, conversation)
+
+    assert conversation.get_history(42) == []
+    assert registry.get_model(42) == "m1"
+    assert registry.get_prompt(42) == "p"
+
+
+async def test_start_mentions_reset_command(fake_message: MagicMock) -> None:
+    await cmd_start(fake_message)
+
+    text = fake_message.answer.call_args.args[0]
+    assert "/reset" in text
+
+
+async def test_help_mentions_reset_command(fake_message: MagicMock) -> None:
+    registry = UserSettingsRegistry(default_model="m1", default_prompt="p")
+
+    await cmd_help(fake_message, registry)
+
+    text = fake_message.answer.call_args.args[0]
+    assert "/reset" in text

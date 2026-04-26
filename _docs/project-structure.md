@@ -52,8 +52,10 @@ ai_tg_bot/
 │   │
 │   ├── services/
 │   │   ├── __init__.py
-│   │   ├── llm.py             # OllamaClient + LLMError/LLMTimeout/LLMUnavailable/LLMBadResponse
-│   │   └── model_registry.py  # UserSettingsRegistry: user_id → model + prompt
+│   │   ├── llm.py             # OllamaClient (.generate, .chat) + estimate_tokens + LLMError/LLMTimeout/LLMUnavailable/LLMBadResponse
+│   │   ├── model_registry.py  # UserSettingsRegistry: user_id → model + prompt
+│   │   ├── conversation.py    # ConversationStore: in-memory история диалога per-user
+│   │   └── summarizer.py      # Summarizer: сжатие старой части истории через LLM
 │   │
 │   ├── middlewares/
 │   │   ├── __init__.py
@@ -74,7 +76,9 @@ ai_tg_bot/
     ├── services/
     │   ├── __init__.py
     │   ├── test_llm_client.py
-    │   └── test_model_registry.py
+    │   ├── test_model_registry.py
+    │   ├── test_conversation_store.py
+    │   └── test_summarizer.py
     └── handlers/
         ├── __init__.py
         ├── test_commands.py
@@ -99,20 +103,22 @@ ai_tg_bot/
 | `app/main.py` | Собирает `Bot`, `Dispatcher`, регистрирует роутеры и middleware, стартует polling. |
 | `app/config.py` | Класс `Settings(BaseSettings)`, парсинг `.env`, валидация. |
 | `app/logging_config.py` | Функция `setup_logging(settings)` → `dictConfig`. |
-| `app/handlers/commands.py` | Router с обработчиками команд (`/start`, `/help`, `/models`, `/model`, `/prompt`). |
-| `app/handlers/messages.py` | Router с обработчиком `F.text & ~F.text.startswith('/')` → LLM. |
+| `app/handlers/commands.py` | Router с обработчиками команд (`/start`, `/help`, `/models`, `/model`, `/prompt`, `/reset`). |
+| `app/handlers/messages.py` | Router с обработчиком `F.text & ~F.text.startswith('/')` → история → LLM `chat` → история → (опц.) суммаризация. |
 | `app/handlers/errors.py` | `@router.errors()` — единая точка для необработанных ошибок. |
-| `app/services/llm.py` | `OllamaClient` (async) + иерархия `LLMError` → `LLMTimeout`/`LLMUnavailable`/`LLMBadResponse`. |
+| `app/services/llm.py` | `OllamaClient` (async) с методами `generate` и `chat(messages, ...)`, утилитой `estimate_tokens`, иерархией `LLMError` → `LLMTimeout`/`LLMUnavailable`/`LLMBadResponse`. |
 | `app/services/model_registry.py` | `UserSettingsRegistry`: in-memory `user_id → model` и `user_id → prompt`. |
+| `app/services/conversation.py` | `ConversationStore`: in-memory история диалога per-user (`user_id → list[{role, content}]`), FIFO-обрезка, `replace_with_summary`, `clear`. |
+| `app/services/summarizer.py` | `Summarizer`: тонкая обёртка над `OllamaClient.chat` для сжатия старой части истории в краткое резюме. |
 | `app/middlewares/logging_mw.py` | Логирование каждого апдейта (`user`, `chat`, `type`, `dur_ms`, `status`). |
 | `app/utils/text.py` | `split_long_message` — разбивка длинных ответов LLM по границам строк/пробелов. |
 | `tests/` | Зеркалирует `app/`, unit-тесты с моками; никаких сетевых вызовов. |
 
 ## Принципы организации
 
-- **Слои не протекают**: handler не знает про HTTP, сервис не знает про aiogram.
-- **Интерфейсы тонкие**: handler вызывает `await llm_client.generate(prompt, model, system)` — и всё.
-- **DI через aiogram `workflow_data`**: `dp["llm_client"] = ...`, `dp["settings"] = ...`, handler получает их через параметры (aiogram 3 умеет инжектить по имени).
+- **Слои не протекают**: handler не знает про HTTP, сервис не знает про aiogram. `ConversationStore` и `Summarizer` тоже не зависят ни от aiogram, ни от ollama (только от `OllamaClient` в случае `Summarizer`).
+- **Интерфейсы тонкие**: handler вызывает `await llm_client.chat(messages, model=...)` — и всё.
+- **DI через aiogram `workflow_data`**: `dp["llm_client"]`, `dp["registry"]`, `dp["conversation"]`, `dp["summarizer"]`, `dp["settings"]`; handler получает их через параметры (aiogram 3 умеет инжектить по имени).
 - **Тесты рядом с тем, что тестируют**: `tests/services/` зеркалит `app/services/`.
 
 ## Что должно попасть в `.gitignore`
