@@ -1,7 +1,7 @@
 """Единая настройка логирования приложения.
 
 Конфигурируется через `logging.config.dictConfig`: консольный вывод и файл с ротацией
-(см. `_docs/stack.md` §5, `_docs/instructions.md` §6). Секреты в логи не пишутся.
+(см. `_docs/stack.md` §5, `_docs/instructions.md` §5). Секреты в логи не пишутся.
 """
 
 from __future__ import annotations
