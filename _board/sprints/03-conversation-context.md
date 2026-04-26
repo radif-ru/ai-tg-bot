@@ -410,7 +410,7 @@
 
 ### Задача 5.3. Обновить `_docs/requirements.md` (FR-3, CON-1, новые FR на историю)
 
-- **Статус:** Progress
+- **Статус:** Done
 - **Приоритет:** high
 - **Объём:** M
 - **Зависит от:** Задача 3.1, 4.1
@@ -440,10 +440,12 @@
 
 #### Definition of Done
 
-- [ ] FR-3 переформулирован, добавлены FR-13, FR-14, FR-15, FR-16.
-- [ ] CON-1 уточнён (in-memory разрешена).
-- [ ] Таблицы трассировки и верификации актуальны.
-- [ ] `grep -E "история диалога не хранится" _docs/requirements.md` пусто.
+- [x] FR-3 переформулирован, добавлены FR-13, FR-14, FR-15, FR-16.
+- [x] CON-1 уточнён (запрещено персистентное хранение; in-memory разрешена).
+- [x] ASM-4 обновлено (явно включает историю и суммаризированный контекст в in-memory состоянии).
+- [x] Таблицы трассировки §5 и верификации §6 актуальны: FR-13/14/15/16 размечены с конкретными файлами и именами тестов.
+- [x] `grep -E "история диалога не хранится" _docs/requirements.md` пусто (фраза убрана).
+- [n/a] Чисто-документационная задача. `pytest -q` прогнан перед коммитом — зелёный (103 теста).
 
 ---
 
@@ -537,7 +539,7 @@
 | 4.1 | Команда `/reset` и обновление справочных текстов                      | medium    | S     | Done   | Задача 3.1                  |
 | 5.1 | Обновить `README.md`: «История диалога», «Суммаризация»               | high      | S     | Done   | Задачи 3.1, 4.1             |
 | 5.2 | Обновить `_docs/architecture.md` и `_docs/project-structure.md`       | high      | M     | Done   | Задача 3.1                  |
-| 5.3 | Обновить `_docs/requirements.md` (FR-3, CON-1, новые FR)              | high      | M     | Progress | Задачи 3.1, 4.1           |
+| 5.3 | Обновить `_docs/requirements.md` (FR-3, CON-1, новые FR)              | high      | M     | Done   | Задачи 3.1, 4.1             |
 | 5.4 | Обновить `_docs/commands.md` и `_docs/current-state.md`               | medium    | S     | ToDo   | Задачи 4.1, 5.2             |
 | 5.5 | Финальная приёмка спринта                                             | high      | S     | ToDo   | Задачи 5.1, 5.2, 5.3, 5.4   |
 
@@ -553,3 +555,4 @@
 - **2026-04-26** — закрыта задача 4.1: добавлена команда `/reset` (очищает историю + сбрасывает model/prompt), зарегистрирована в `set_my_commands`, упомянута в `/start` и `/help`; +4 теста (коммит `feat(handlers): add /reset command to clear history and reset per-user settings`).
 - **2026-04-26** — закрыта задача 5.1: `README.md` обновлён — лидер с «без истории» переписан, добавлены разделы «История диалога» и «Суммаризация», в таблицу env добавлены 4 новые переменные с default'ами, в «Команды» и «Возможности» — `/reset` (коммит `docs(readme): document conversation history, summarization, /reset and new env vars`).
 - **2026-04-26** — закрыта задача 5.2: `_docs/architecture.md` переработан (схема, принципы, §3.2/3.4/3.5/3.8, flow §4, §7 расширяемость) под историю + chat-API + Summarizer; `_docs/project-structure.md` в дереве и таблице добавлены `conversation.py`, `summarizer.py` и их тесты (коммит `docs(architecture): document conversation history, summarization and chat() flow`).
+- **2026-04-26** — закрыта задача 5.3: `_docs/requirements.md` — FR-3 переформулирован, добавлены FR-13/14/15/16 (логирование контекста / лимит / суммаризация / `/reset`); CON-1 уточнён до «запрещена персистентная история, in-memory разрешена»; ASM-4 обновлено; таблицы §5/§6 пересчитаны (коммит `docs(requirements): restate FR-3, soften CON-1, add FR-13..16 for history and summarization`).
